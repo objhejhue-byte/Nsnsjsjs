@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sight Reading Trainer</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#faf8f4;--fg:#1d1d1f;--mut:#6b6b70;--card:#fff;--line:#d8d4cc;--acc:#3a5ccc;--ok:#1f9d55;--bad:#d64545}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17181b;--fg:#ececee;--mut:#9a9aa3;--card:#222428;--line:#3a3d44;--acc:#7f9cff;--ok:#43c47a;--bad:#ff6b6b}}
+:root[data-theme="dark"]{--bg:#17181b;--fg:#ececee;--mut:#9a9aa3;--card:#222428;--line:#3a3d44;--acc:#7f9cff;--ok:#43c47a;--bad:#ff6b6b}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:520px;margin:0 auto;padding:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+label{font-size:13px;color:var(--mut);display:flex;flex-direction:column;gap:4px}
+select,button{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.step{display:flex;align-items:center;gap:8px}
+.step button{width:40px;height:40px;font-size:20px;padding:0}
+.step b{min-width:20px;text-align:center;font-size:20px}
+.clefp{fill:none;stroke:var(--fg);stroke-width:3.2;stroke-linecap:round}.clefd{fill:var(--fg)}.badge{display:inline-block;font-weight:700;font-size:13px;letter-spacing:.06em;padding:3px 10px;border-radius:99px;background:var(--acc);color:var(--bg)}
+svg{width:100%;height:auto;display:block}
+.ln{stroke:var(--fg);stroke-width:1.4}.lg{stroke:var(--fg);stroke-width:1.6}
+.nh{fill:var(--fg)}
+.ok .nh{fill:var(--ok)}.bad .nh{fill:var(--bad)}
+.bad{animation:sh .3s}@keyframes sh{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.kb{display:flex;overflow-x:auto;gap:2px;padding-bottom:6px}
+.k{flex:0 0 38px;touch-action:pan-x;user-select:none;-webkit-user-select:none;height:128px;border-radius:0 0 8px 8px;background:#fff;color:#444;border:1px solid #aaa;display:flex;align-items:flex-end;justify-content:center;padding:6px 0;font-size:11px}
+.k.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.stats{font-size:14px;color:var(--mut);display:flex;gap:14px;flex-wrap:wrap}
+.hint{font-size:13px;color:var(--mut);margin:6px 0 0}
+.kb{gap:0}.kbi{position:relative;display:flex;flex:0 0 auto}.k{border-radius:0 0 6px 6px}
+.k.b{position:absolute;top:0;width:24px;height:78px;flex:none;background:#1b1b1d;color:#fff;border:1px solid #000;z-index:2;border-radius:0 0 5px 5px;padding:0}.k.b.on{background:var(--acc)}
+.acs{fill:none;stroke:var(--fg);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.ok .acs{stroke:var(--ok)}.bad .acs{stroke:var(--bad)}
+</style></head><body><main>
+<div class="card"><div class="row">
+<label>Clef<select id="mode"><option value="alt">Alternate</option><option value="treble">Treble</option><option value="bass">Bass</option><option value="rand">Random</option></select></label>
+<label>Chords<select id="ch"><option value="tri">Triads</option><option value="sev">Triads + 7ths</option></select></label>
+<label>Sharps/flats<select id="acc"><option value="0">Off</option><option value="1">On</option></select></label>
+<label>One-hand reach<select id="span"><option value="7">Up to a 5th</option><option value="9">Up to a 6th</option><option value="12" selected>Up to an octave</option></select></label>
+</div></div>
+<div class="card">
+<div class="row"><span class="hint" id="hint" style="margin:0">Hold all the notes at once</span><span id="prog" class="stats"></span></div>
+<div id="staff"></div>
+</div>
+<div class="card">
+<div class="kb" id="kb"></div>
+<div class="row" style="margin-top:8px"><button id="skip">Skip</button><button id="midi">Connect MIDI</button></div>
+<p class="hint" id="ms">Hold every key at the same time (any order), then release to continue. MIDI keyboards work too.</p>
+</div>
+<div class="stats" id="stats"></div>
+<script>
+const NP=[0,2,4,5,7,9,11],LET='CDEFGAB',$=id=>document.getElementById(id);
+const RT=[[0,0,'C'],[1,-1,'Db'],[1,0,'D'],[2,-1,'Eb'],[2,0,'E'],[3,0,'F'],[3,1,'F#'],[4,0,'G'],[5,-1,'Ab'],[5,0,'A'],[6,-1,'Bb'],[6,0,'B']];
+const Q={maj:['',[[0,0],[2,4],[4,7]]],min:['m',[[0,0],[2,3],[4,7]]],dim:['dim',[[0,0],[2,3],[4,6]]],aug:['aug',[[0,0],[2,4],[4,8]]],
+'7':['7',[[0,0],[2,4],[4,7],[6,10]]],maj7:['maj7',[[0,0],[2,4],[4,7],[6,11]]],m7:['m7',[[0,0],[2,3],[4,7],[6,10]]],m7b5:['m7b5',[[0,0],[2,3],[4,6],[6,10]]]};
+const TRI=['maj','maj','min','min','dim','aug'],SEV=[...TRI,'7','maj7','m7','m7b5'];
+const R={treble:{dlo:28,dhi:40,base:30,kb:[60,84],fb:[[28,60],[30,64],[32,67]]},bass:{dlo:16,dhi:28,base:18,kb:[36,62],fb:[[21,48],[23,52],[25,55]]}};
+const CL={treble:'<path class="clefp" d="M56 146C55 156 70 158 70 146C70 130 60 108 60 82C60 64 66 52 69 50C73 56 74 68 68 82C62 96 50 106 48 120C46 134 58 140 66 136C76 130 74 114 64 114C55 114 53 124 60 126C65 127 67 121 63 119"/>',
+bass:'<g transform="translate(-10,0)"><circle class="clefd" cx="44" cy="94" r="4.6"/><path class="clefp" d="M45 91C50 82 68 84 68 98C68 112 54 126 38 134"/><circle class="clefd" cx="78" cy="88" r="2.6"/><circle class="clefd" cx="78" cy="100" r="2.6"/></g>'};
+let clef='bass',target=[],cname='',N=3,ok=0,bad=0,streak=0,locked=false,won=false;const held=new Set();
+function gen(c,pool,acc,span){const r=R[c];
+for(let t=0;t<1500;t++){const[ls,ra,rn]=RT[Math.random()*12|0];if(!acc&&ra)continue;
+const[qs,iv]=Q[pool[Math.random()*pool.length|0]],o=Math.floor(r.dlo/7)+(Math.random()*(Math.floor(r.dhi/7)-Math.floor(r.dlo/7)+1)|0),d0=7*o+ls,rm=12*(o+1)+NP[ls]+ra;
+const ns=iv.map(([s,x])=>{const d=d0+s,m=rm+x;return{d,m,a:m-(12*(Math.floor(d/7)+1)+NP[d%7])}});
+if(ns.some(n=>Math.abs(n.a)>1||(!acc&&n.a)))continue;
+const inv=Math.random()*ns.length|0;for(let i=0;i<inv;i++){ns[i].d+=7;ns[i].m+=12}
+ns.sort((a,b)=>a.m-b.m);
+if(ns.some(n=>n.d<r.dlo||n.d>r.dhi||n.m<r.kb[0]||n.m>r.kb[1])||ns[ns.length-1].m-ns[0].m>span)continue;
+const b=ns[0];return{notes:ns,name:rn+qs+(inv?'/'+LET[b.d%7]+(b.a>0?'#':b.a<0?'b':''):'')}}
+return{notes:r.fb.map(([d,m])=>({d,m,a:0})),name:'C'}}
+function draw(c,ns,cls){const r=R[c],Y=s=>130-s*6,st=ns.map(n=>n.d-r.base);let s='',h='',g='',off=[],cols=[],ax=[];
+for(let i=0;i<5;i++)s+=`<line class="ln" x1="20" x2="300" y1="${Y(i*2)}" y2="${Y(i*2)}"/>`;
+for(let i=ns.length-1;i>=0;i--){if(!ns[i].a)continue;let j=0;while(cols[j]&&cols[j].some(v=>Math.abs(v-st[i])<5))j++;(cols[j]=cols[j]||[]).push(st[i]);ax[i]=j}
+st.forEach((v,i)=>{let x=170;if(i&&v-st[i-1]===1&&!off[i-1]){x=184;off[i]=true}
+for(let k=-2;k>=v;k-=2)s+=`<line class="lg" x1="${x-15}" x2="${x+15}" y1="${Y(k)}" y2="${Y(k)}"/>`;
+for(let k=10;k<=v;k+=2)s+=`<line class="lg" x1="${x-15}" x2="${x+15}" y1="${Y(k)}" y2="${Y(k)}"/>`;
+h+=`<ellipse class="nh" cx="${x}" cy="${Y(v)}" rx="8" ry="6" transform="rotate(-20 ${x} ${Y(v)})"/>`;
+if(ns[i].a)g+=`<path class="acs" transform="translate(${150-13*ax[i]} ${Y(v)})" d="${ns[i].a>0?'M-2.5-9V9M2.5-10V8M-5-2.5L5-5M-5 5L5 2.5':'M-3-12V6M-3 6C9 1 7-7-3-3'}"/>`});
+$('staff').innerHTML=`<svg viewBox="0 40 320 130" class="${cls||''}">${s}${CL[c]}${g}${h}</svg>`}
+function kb(){const[a,b]=R[clef].kb,k=$('kb');let w=0,x='',y='';
+for(let m=a;m<=b;m++){if(NP.includes(m%12)){x+=`<button class="k" data-m="${m}">${m%12==0?'C'+(Math.floor(m/12)-1):''}</button>`;w++}
+else y+=`<button class="k b" data-m="${m}" style="left:${w*38-12}px"></button>`}
+k.innerHTML=`<div class="kbi">${x}${y}</div>`;
+const t=k.querySelector(`[data-m="${target[0].m}"]`);if(t)k.scrollLeft=Math.max(0,t.offsetLeft-24)}
+function mark(){document.querySelectorAll('.k').forEach(b=>b.classList.toggle('on',held.has(+b.dataset.m)))}
+function stats(){$('stats').innerHTML=`<span>✓ ${ok}</span><span>✗ ${bad}</span><span>Streak ${streak}</span>`;$('prog').textContent=`${held.size}/${N}`}
+function next(first){const mode=$('mode').value;
+clef=mode==='alt'?(first?'treble':clef==='treble'?'bass':'treble'):mode==='rand'?(Math.random()<.5?'treble':'bass'):mode;
+const g=gen(clef,$('ch').value==='sev'?SEV:TRI,$('acc').value==='1',+$('span').value);
+target=g.notes;cname=g.name;N=target.length;held.clear();locked=false;
+$('hint').textContent='Hold all the notes at once';draw(clef,target);kb();mark();stats()}
+function change(){mark();
+if(locked){if(!held.size){locked=false;if(won)return next();draw(clef,target)}stats();return}
+if(held.size>=N){won=held.size===N&&target.every(n=>held.has(n.m));locked=true;
+if(won){ok++;streak++}else{bad++;streak=0}$('hint').textContent=cname;draw(clef,target,won?'ok':'bad')}
+stats()}
+const ptr={};
+$('kb').addEventListener('pointerdown',e=>{const b=e.target.closest('.k');if(!b)return;const m=+b.dataset.m;ptr[e.pointerId]=m;held.add(m);change()});
+const up=e=>{const m=ptr[e.pointerId];if(m==null)return;delete ptr[e.pointerId];held.delete(m);change()};
+addEventListener('pointerup',up);addEventListener('pointercancel',up);
+['mode','ch','acc','span'].forEach(i=>$(i).onchange=()=>next(true));$('skip').onclick=()=>next();
+function wire(a){a.inputs.forEach(i=>i.onmidimessage=e=>{const[s,m,v]=e.data,t=s&240;
+if(t===144&&v>0)held.add(m);else if(t===128||t===144)held.delete(m);else return;change()})}
+$('midi').onclick=async()=>{if(!navigator.requestMIDIAccess){$('ms').textContent='Web MIDI is not supported in this browser.';return}
+try{const a=await navigator.requestMIDIAccess();wire(a);a.onstatechange=()=>wire(a);$('ms').textContent=a.inputs.size?'MIDI connected — hold the notes together.':'MIDI allowed, but no keyboard detected.'}
+catch(e){$('ms').textContent='MIDI blocked here — use the on-screen keys.'}};
+next(true);
+</script></main></body></html>
